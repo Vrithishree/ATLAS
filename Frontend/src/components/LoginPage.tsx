@@ -1,0 +1,342 @@
+import { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
+
+interface LoginPageProps {
+  onLogin: () => void;
+}
+
+export default function LoginPage({ onLogin }: LoginPageProps) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050101);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
+    camera.position.z = 100;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    container.appendChild(renderer.domElement);
+
+    const plexusGroup = new THREE.Group();
+    scene.add(plexusGroup);
+
+    const particleCount = 135;
+    const particles: { x: number; y: number; z: number; vx: number; vy: number; vz: number }[] = [];
+    const threshold = 38;
+    const maxConnections = 500;
+
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        x: (Math.random() - 0.5) * 220,
+        y: (Math.random() - 0.5) * 220,
+        z: (Math.random() - 0.5) * 220,
+        vx: (Math.random() - 0.5) * 0.18,
+        vy: (Math.random() - 0.5) * 0.18,
+        vz: (Math.random() - 0.5) * 0.18,
+      });
+    }
+
+    const createNodeTexture = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d')!;
+      const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gradient.addColorStop(0, 'rgba(255, 40, 40, 1)');
+      gradient.addColorStop(0.18, 'rgba(255, 25, 25, 0.8)');
+      gradient.addColorStop(0.45, 'rgba(150, 8, 12, 0.4)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 64, 64);
+      return new THREE.CanvasTexture(canvas);
+    };
+
+    const nodeGeometry = new THREE.BufferGeometry();
+    const nodePositions = new Float32Array(particleCount * 3);
+    nodeGeometry.setAttribute('position', new THREE.BufferAttribute(nodePositions, 3));
+
+    const nodeMaterial = new THREE.PointsMaterial({
+      size: 4.8,
+      map: createNodeTexture(),
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+
+    const nodePoints = new THREE.Points(nodeGeometry, nodeMaterial);
+    plexusGroup.add(nodePoints);
+
+    const lineGeometry = new THREE.BufferGeometry();
+    const linePositions = new Float32Array(maxConnections * 2 * 3);
+    const lineColors = new Float32Array(maxConnections * 2 * 3);
+    lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+    lineGeometry.setAttribute('color', new THREE.BufferAttribute(lineColors, 3));
+
+    const lineMaterial = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      linewidth: 1,
+      depthWrite: false,
+    });
+
+    const lineSegments = new THREE.LineSegments(lineGeometry, lineMaterial);
+    plexusGroup.add(lineSegments);
+
+    let mouseX = 0;
+    let mouseY = 0;
+    let targetCameraX = 0;
+    let targetCameraY = 0;
+
+    const handleMouseMove = (event: MouseEvent) => {
+      mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+      mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+
+    const handleResize = () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    };
+    window.addEventListener('resize', handleResize);
+
+    let animationId: number;
+    const animate = () => {
+      animationId = requestAnimationFrame(animate);
+
+      const positions = nodePoints.geometry.attributes.position.array as Float32Array;
+      const bound = 110;
+      for (let i = 0; i < particleCount; i++) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.z += p.vz;
+        if (Math.abs(p.x) > bound) { p.vx *= -1; p.x = Math.sign(p.x) * bound; }
+        if (Math.abs(p.y) > bound) { p.vy *= -1; p.y = Math.sign(p.y) * bound; }
+        if (Math.abs(p.z) > bound) { p.vz *= -1; p.z = Math.sign(p.z) * bound; }
+        positions[i * 3] = p.x;
+        positions[i * 3 + 1] = p.y;
+        positions[i * 3 + 2] = p.z;
+      }
+      nodePoints.geometry.attributes.position.needsUpdate = true;
+
+      const linePos = lineGeometry.attributes.position.array as Float32Array;
+      const lineCol = lineGeometry.attributes.color.array as Float32Array;
+      let lineCount = 0;
+
+      for (let i = 0; i < particleCount; i++) {
+        for (let j = i + 1; j < particleCount; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dz = particles[i].z - particles[j].z;
+          const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          if (dist < threshold && lineCount < maxConnections) {
+            const ratio = 1.0 - dist / threshold;
+            const baseIdx = lineCount * 6;
+            linePos[baseIdx] = particles[i].x;
+            linePos[baseIdx + 1] = particles[i].y;
+            linePos[baseIdx + 2] = particles[i].z;
+            linePos[baseIdx + 3] = particles[j].x;
+            linePos[baseIdx + 4] = particles[j].y;
+            linePos[baseIdx + 5] = particles[j].z;
+            const r = 0.86 * ratio;
+            const g = 0.15 * ratio;
+            const b = 0.15 * ratio;
+            lineCol[baseIdx] = r;
+            lineCol[baseIdx + 1] = g;
+            lineCol[baseIdx + 2] = b;
+            lineCol[baseIdx + 3] = r;
+            lineCol[baseIdx + 4] = g;
+            lineCol[baseIdx + 5] = b;
+            lineCount++;
+          }
+        }
+      }
+      lineGeometry.setDrawRange(0, lineCount * 2);
+      lineGeometry.attributes.position.needsUpdate = true;
+      lineGeometry.attributes.color.needsUpdate = true;
+
+      plexusGroup.rotation.y += 0.0007;
+      plexusGroup.rotation.x += 0.0004;
+
+      targetCameraX = mouseX * 22;
+      targetCameraY = mouseY * 22;
+      camera.position.x += (targetCameraX - camera.position.x) * 0.045;
+      camera.position.y += (targetCameraY - camera.position.y) * 0.045;
+      camera.lookAt(scene.position);
+
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    return () => {
+      cancelAnimationFrame(animationId);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('resize', handleResize);
+      if (container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement);
+      }
+      scene.clear();
+      nodeGeometry.dispose();
+      nodeMaterial.dispose();
+      lineGeometry.dispose();
+      lineMaterial.dispose();
+      renderer.dispose();
+    };
+  }, []);
+
+  const handleAuthSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setSuccessMsg('');
+    setTimeout(() => {
+      setIsLoading(false);
+      setSuccessMsg('SYSTEM INITIALIZED. WELCOME BACK, OPERATOR.');
+      setTimeout(() => onLogin(), 900);
+    }, 1800);
+  };
+
+  return (
+    <div className="relative min-h-screen w-screen flex items-center justify-center bg-[#050101] text-white overflow-hidden font-sans select-none">
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(28px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeIn 1.2s ease-out forwards; }
+        .animate-fade-in-up { animation: fadeInUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .text-shadow-glow { text-shadow: 0 0 18px rgba(239, 68, 68, 0.55), 0 0 4px rgba(239, 68, 68, 0.3); }
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus {
+          -webkit-text-fill-color: #ffffff;
+          -webkit-box-shadow: 0 0 0px 1000px rgba(14, 3, 4, 0.9) inset;
+          transition: background-color 5000s ease-in-out 0s;
+          border: 1px solid rgba(239, 68, 68, 0.22);
+        }
+      `}</style>
+
+      <div ref={containerRef} className="absolute inset-0 z-0 pointer-events-none" />
+
+      {/* Top Left Branding */}
+      <div className="absolute top-6 left-6 flex flex-col items-center z-25 select-none animate-fade-in">
+        <div className="w-28 h-28 bg-[#090203]/85 backdrop-blur-md rounded-2xl border border-red-950/45 flex items-center justify-center shadow-[0_8px_32px_rgba(0,0,0,0.85)] mb-0 transition-all duration-300 hover:scale-105 hover:border-red-700/35 overflow-hidden p-2">
+          <img
+            src="/logo.png"
+            alt="ATLAS Shield Logo"
+            className="w-full h-full object-contain filter drop-shadow-[0_0_10px_rgba(239,68,68,0.4)]"
+          />
+        </div>
+        <span className="font-cinzel text-xl md:text-2xl text-[#ece2e2] tracking-[0.28em] uppercase font-bold text-shadow-glow -mt-1">
+          ATLAS
+        </span>
+      </div>
+
+      {/* Central Login Card */}
+      <div className="relative z-10 w-full max-w-[480px] mx-4 animate-fade-in-up">
+        <form
+          onSubmit={handleAuthSubmit}
+          style={{
+            background: 'rgba(255, 255, 255, 0.12)',
+            borderRadius: '40px',
+            border: '1px solid rgba(255, 255, 255, 0.22)',
+            boxShadow: '0 25px 65px -15px rgba(0, 0, 0, 0.7), 0 0 35px rgba(255, 255, 255, 0.04)',
+          }}
+          className="backdrop-blur-[16px] p-8 md:p-12 flex flex-col space-y-6"
+        >
+          <h2 className="text-center text-3xl font-extrabold tracking-[0.12em] text-white uppercase mt-1 mb-3">
+            LOGIN
+          </h2>
+
+          <div className="flex flex-col space-y-2">
+            <label className="text-[#ece2e2] text-sm md:text-base font-semibold pl-1.5 tracking-wide">
+              Username
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter the username or email"
+              required
+              className="w-full bg-white/10 border border-white/20 hover:border-white/40 focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 outline-none rounded-2xl py-3.5 px-5 text-white placeholder-[#d1c7c7] transition-all duration-300 text-sm md:text-base"
+            />
+          </div>
+
+          <div className="flex flex-col space-y-2">
+            <label className="text-[#ece2e2] text-sm md:text-base font-semibold pl-1.5 tracking-wide">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter the password"
+              required
+              className="w-full bg-white/10 border border-white/20 hover:border-white/40 focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 outline-none rounded-2xl py-3.5 px-5 text-white placeholder-[#d1c7c7] transition-all duration-300 text-sm md:text-base"
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-xs md:text-sm text-[#ece2e2] px-1 select-none">
+            <label className="flex items-center space-x-2.5 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border border-white/20 bg-white/5 checked:bg-red-700 checked:border-red-700 focus:ring-0 outline-none transition-all cursor-pointer accent-red-600"
+              />
+              <span className="group-hover:text-white transition-colors">Remember me</span>
+            </label>
+            <a href="#" className="hover:text-red-400 hover:underline transition-all duration-200">
+              Forgot Password?
+            </a>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full relative overflow-hidden bg-gradient-to-r from-[#6b1116] to-[#3f080b] hover:from-[#81191f] hover:to-[#520c10] border border-red-900/35 text-white font-semibold py-4 px-6 rounded-2xl shadow-[0_0_20px_rgba(220,38,38,0.12)] hover:shadow-[0_0_30px_rgba(220,38,38,0.35)] transform hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 text-sm md:text-base flex items-center justify-center gap-3 cursor-pointer mt-4 disabled:opacity-80 disabled:cursor-wait"
+          >
+            {isLoading ? (
+              <>
+                <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span>Initializing Security Protocol...</span>
+              </>
+            ) : (
+              <span>Authenticate &amp; Initialize</span>
+            )}
+          </button>
+
+          {successMsg && (
+            <div className="text-center text-xs md:text-sm font-semibold tracking-wider text-green-400 bg-green-950/20 border border-green-500/30 p-3.5 rounded-xl animate-fade-in">
+              {successMsg}
+            </div>
+          )}
+
+          <div className="text-center text-xs md:text-sm text-[#d1c7c7] mt-1 select-none">
+            Don't have an account?{' '}
+            <a href="#" className="text-white hover:text-red-400 hover:underline transition-colors duration-200 font-semibold ml-0.5">
+              Register
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
