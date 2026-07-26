@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield, Crosshair, Activity, FileText, ChevronLeft,
-  ChevronRight, CircleDot, Settings, LifeBuoy, LogOut,
+  ChevronRight, CircleDot, Settings, LifeBuoy,
 } from 'lucide-react';
 import BrandLogo from './BrandLogo';
 
@@ -9,7 +9,6 @@ interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
   scanning: boolean;
-  onLogout: () => void;
 }
 
 const NAV = [
@@ -27,7 +26,7 @@ const SECONDARY = [
   { id: 'support', label: 'Support', icon: LifeBuoy },
 ];
 
-export default function Sidebar({ collapsed, onToggle, scanning, onLogout }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, scanning }: SidebarProps) {
   return (
     <motion.aside
       initial={false}
@@ -49,7 +48,7 @@ export default function Sidebar({ collapsed, onToggle, scanning, onLogout }: Sid
                 className="flex flex-col leading-none"
               >
                 <span className="font-cinzel font-700 text-lg tracking-[0.2em] text-crimson-200 text-glow-red">ATLAS</span>
-                <span className="text-[8px] tracking-[0.3em] text-crimson-400/50 mt-0.5 font-inter uppercase">Cybersecurity</span>
+                <span className="text-[8px] tracking-[0.3em] text-crimson-400/50 mt-0.5 font-inter uppercase">Automated VAPT</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -140,8 +139,8 @@ export default function Sidebar({ collapsed, onToggle, scanning, onLogout }: Sid
       <div className="px-3 py-4 border-t border-crimson-500/10">
         <div className="flex items-center gap-3 px-2">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-crimson-500 to-crimson-800 flex items-center justify-center text-xs font-600 text-white shrink-0">
-            JA
           </div>
+
           <AnimatePresence>
             {!collapsed && (
               <motion.div
@@ -149,17 +148,16 @@ export default function Sidebar({ collapsed, onToggle, scanning, onLogout }: Sid
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -8 }}
                 className="flex-1 min-w-0"
-              >
-                <p className="text-xs font-500 text-crimson-100 truncate">J. Alvarez</p>
-                <p className="text-[10px] text-crimson-300/40 truncate">Senior Analyst</p>
+               >
+                <p className="text-xs font-500 text-crimson-100 truncate">
+                   ATLAS
+                </p>
               </motion.div>
-            )}
+             )}
           </AnimatePresence>
-          <button onClick={onLogout} className="text-crimson-300/40 hover:text-crimson-400 transition" title="Sign out">
-            <LogOut size={16} />
-          </button>
+
         </div>
       </div>
-    </motion.aside>
+      </motion.aside>
   );
 }

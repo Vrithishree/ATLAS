@@ -19,9 +19,6 @@ import type { LucideIcon } from 'lucide-react';
 
 type Phase = 'idle' | 'discovery' | 'assessment' | 'complete';
 
-interface DashboardProps {
-  onLogout: () => void;
-}
 
 const emptyCounts = (): Record<Severity, number> => ({ critical: 0, high: 0, medium: 0, low: 0, info: 0 });
 
@@ -46,7 +43,7 @@ const ASSESSMENT_LOG_TEMPLATES: Record<string, string[]> = {
   cve: ['Correlating findings with CVE database...', 'CVE-2024-7347 (CVSS 7.8) confirmed', 'CVE correlation complete'],
 };
 
-export default function Dashboard({ onLogout }: DashboardProps) {
+export default function Dashboard(){
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
   const [target, setTarget] = useState('https://target.acme-corp.com');
@@ -240,7 +237,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-crimson-700/10 rounded-full blur-[150px] pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-crimson-500/5 rounded-full blur-[150px] pointer-events-none" />
 
-      <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} scanning={scanning} onLogout={onLogout} />
+      <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} scanning={scanning} />
 
       <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-[72px]' : 'ml-[256px]'}`}>
         <TopNav scanning={scanning} phase={phaseLabel} />
@@ -262,17 +259,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             </div>
 
             <div className="relative z-10 max-w-2xl">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="px-2.5 py-1 rounded-full bg-crimson-500/10 border border-crimson-500/30 text-[10px] uppercase tracking-wider text-crimson-400 font-600">
-                  Automated Assessment
-                </span>
-                <span className="text-[10px] text-crimson-300/40 uppercase tracking-wider">Prototype v1</span>
-              </div>
               <h1 className="font-cinzel font-700 text-3xl md:text-4xl text-crimson-100 mb-3 leading-tight">
                 AI-Powered <span className="gradient-text-crimson">Vulnerability</span> Assessment
               </h1>
               <p className="text-sm text-crimson-300/60 leading-relaxed mb-6 max-w-xl">
-                Enter a target URL and ATLAS Sentinel will perform end-to-end reconnaissance, run automated security checks, and generate an executive report — all in real time.
+                Initiate an automated vulnerability assessment by providing the target application URL.
               </p>
 
               {/* Target input */}
@@ -296,16 +287,16 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                   className={`btn-crimson px-6 py-3 rounded-lg text-sm font-600 text-white flex items-center justify-center gap-2 ${phase !== 'idle' ? 'opacity-40 cursor-not-allowed' : 'glow-red'}`}
                 >
                   <Rocket size={16} />
-                  {phase === 'idle' ? 'Start Assessment' : 'Assessment Running'}
+                  {phase === 'idle' ? 'Start Scan' : 'Assessment in Progress...'}
                 </motion.button>
               </div>
 
               {/* Quick stats */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
-                <HeroStat icon={Crosshair} label="Discovery Modules" value="7" />
+                <HeroStat icon={Crosshair} label="Discovery Engines" value="7" />
                 <HeroStat icon={ShieldCheck} label="Security Checks" value="8" />
-                <HeroStat icon={Activity} label="Live Status" value={phaseLabel} highlight={scanning} />
-                <HeroStat icon={Gauge} label="Findings" value={String(totalFindings)} />
+                <HeroStat icon={Activity} label="Assessment Status" value={phaseLabel} highlight={scanning} />
+                <HeroStat icon={Gauge} label="Detected Findings" value={String(totalFindings)} />
               </div>
             </div>
           </motion.section>
@@ -422,8 +413,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
           {/* Footer */}
           <footer className="pt-4 pb-2 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-crimson-300/30">
-            <span>ATLAS Cybersecurity Platform — Prototype v1 · Vulnerability Assessment Workflow</span>
-            <span className="flex items-center gap-1">Built for demonstration <ArrowRight size={10} /> Not for production use</span>
+            <span>ATLAS - Automated Tracing & Live Attack Simulator</span>
           </footer>
         </main>
       </div>

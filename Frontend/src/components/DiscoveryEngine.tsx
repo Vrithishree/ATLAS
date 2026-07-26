@@ -46,9 +46,9 @@ export default function DiscoveryEngine({
             </motion.div>
           </div>
           <div>
-            <h2 className="text-base font-600 text-crimson-100">Discovery Engine</h2>
+            <h2 className="text-base font-600 text-crimson-100">AI Reconnaissance Engine</h2>
             <p className="text-[11px] text-crimson-300/50">
-              {discoveryComplete ? 'Reconnaissance complete' : 'Mapping target infrastructure'}
+              {discoveryComplete ? 'Reconnaissance complete' : 'Mapping Target Infrastructure & Attack Surface'}
             </p>
           </div>
         </div>
@@ -123,7 +123,7 @@ export default function DiscoveryEngine({
                           animate={{ scale: [1, 1.15, 1] }}
                           transition={{ duration: 1.5, repeat: Infinity }}
                         >
-                          <Radar size={28} className="text-crimson-400" />
+                          <Radar size={28} className="text-crimson-400 drop-shadow-[0_0_12px_rgba(220,28,28,0.8)]" />
                         </motion.div>
                       )}
                       <span className="text-[9px] text-crimson-300/50 mt-1 uppercase tracking-wider">
@@ -148,11 +148,11 @@ export default function DiscoveryEngine({
 
                 {/* Live counters */}
                 <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <CounterCard label="Ports Scanned" value={discoveryComplete ? 65535 : Math.round(65535 * (taskProgress / 100))} max={65535} active={!discoveryComplete} />
-                  <CounterCard label="Hosts Found" value={discoveryComplete ? 2 : completedTasks.length > 0 ? 1 : 0} active={!discoveryComplete} />
-                  <CounterCard label="Services" value={discoveryResult ? discoveryResult.services.length : 0} active={!discoveryComplete} />
+                  <CounterCard label="Ports Scanned " value={discoveryComplete ? 65535 : Math.round(65535 * (taskProgress / 100))} max={65535} active={!discoveryComplete} />
+                  <CounterCard label="Assets Identified" value={discoveryComplete ? 2 : completedTasks.length > 0 ? 1 : 0} active={!discoveryComplete} />
+                  <CounterCard label="Running Services" value={discoveryResult ? discoveryResult.services.length : 0} active={!discoveryComplete} />
                   <CounterCard label="Endpoints" value={discoveryResult ? discoveryResult.endpoints.length : 0} active={!discoveryComplete} />
-                  <CounterCard label="APIs" value={discoveryResult ? discoveryResult.apis.length : 0} active={!discoveryComplete} />
+                  <CounterCard label="API Surface" value={discoveryResult ? discoveryResult.apis.length : 0} active={!discoveryComplete} />
                   <CounterCard label="Technologies" value={discoveryResult ? discoveryResult.technologies.length : 0} active={!discoveryComplete} />
                 </div>
               </div>
@@ -216,12 +216,12 @@ export default function DiscoveryEngine({
                       <span className="text-xs uppercase tracking-wider text-crimson-300/60 font-600">Reconnaissance Summary</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <ResultBlock title="DNS">
+                      <ResultBlock title="DNS Intelligence">
                         <Row k="Hostname" v={discoveryResult.dns.hostname} />
                         <Row k="IPs" v={discoveryResult.dns.ips.join(', ')} />
                         <Row k="Nameservers" v={discoveryResult.dns.nameservers.join(', ')} />
                       </ResultBlock>
-                      <ResultBlock title="SSL / TLS">
+                      <ResultBlock title="TLS Configuration">
                         <Row k="Issuer" v={discoveryResult.ssl.issuer} />
                         <Row k="Protocol" v={discoveryResult.ssl.protocol} />
                         <Row k="Valid Until" v={discoveryResult.ssl.validTo} />
