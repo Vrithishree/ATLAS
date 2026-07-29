@@ -6,7 +6,7 @@ def run_owasp_zap_scan(target_url: str) -> str:
     Interfaces with running OWASP ZAP proxy instance to spider and actively scan target URLs.
     """
     # Replace with local OWASP ZAP proxy port configuration details
-    zap_proxy_address = "http://127.0.0.1:8080"
+    zap_proxy_address = "http://127.0.0.1:8090"
     
     try:
         zap = ZAPv2(proxies={"http": zap_proxy_address, "https": zap_proxy_address})

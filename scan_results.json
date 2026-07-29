@@ -1,0 +1,44 @@
+{
+  "status": "Success",
+  "target": "127.0.0.1",
+  "scan_data": {
+    "infrastructure_ports": "ATLAS Security Core - Async TCP Connect Scan\nTarget: 127.0.0.1 (127.0.0.1)\nScanned: 100 ports | Concurrency: 50\nTimestamp: 2026-07-29T05:20:14.599583+00:00\nDuration: 3.02s\n\nOpen ports: 4\n------------------------------------------------------------\nPORT      STATE   SERVICE        PRODUCT/VERSION\n------------------------------------------------------------\n80        open    http           \n135       open    msrpc          \n443       open    https          \n445       open    microsoft-ds   ",
+    "network_vulnerabilities": "ATLAS Native CVE Engine - Target: 127.0.0.1\n  - [Port 80] [LOW] GENERIC-PORT-EXPOSURE: Port 80 is publicly exposed. Verify service configuration.\n  - [Port 135] [HIGH] CVE-2003-0352 (MS03-026): Buffer overrun in RPC interface could allow remote code execution.\n  - [Port 443] [LOW] GENERIC-PORT-EXPOSURE: Port 443 is publicly exposed. Verify service configuration.\n  - [Port 445] [CRITICAL] CVE-2017-0144 (MS17-010 / EternalBlue): SMBv1 server vulnerability allowing remote code execution.",
+    "compliance_violations": "ATLAS Compliance Audit Summary - Target Host: 127.0.0.1\n  - \u2705 [PASS] Windows Firewall Active (Severity: LOW)\n  - \u2705 [PASS] User Account Control (UAC) Enabled (Severity: LOW)",
+    "web_application_vulnerabilities": "- [Low Risk] Strict-Transport-Security Header Not Set | Location: https://127.0.0.1/robots.txt | Parameter: \n- [Low Risk] Strict-Transport-Security Header Not Set | Location: https://127.0.0.1 | Parameter: \n- [Low Risk] Strict-Transport-Security Header Not Set | Location: https://127.0.0.1/sitemap.xml | Parameter: ",
+    "discovered_ports": [
+      {
+        "port": 80,
+        "protocol": "tcp",
+        "state": "open",
+        "service": "http",
+        "product": "",
+        "version": ""
+      },
+      {
+        "port": 135,
+        "protocol": "tcp",
+        "state": "open",
+        "service": "msrpc",
+        "product": "",
+        "version": ""
+      },
+      {
+        "port": 443,
+        "protocol": "tcp",
+        "state": "open",
+        "service": "https",
+        "product": "",
+        "version": ""
+      },
+      {
+        "port": 445,
+        "protocol": "tcp",
+        "state": "open",
+        "service": "microsoft-ds",
+        "product": "",
+        "version": ""
+      }
+    ]
+  }
+}
