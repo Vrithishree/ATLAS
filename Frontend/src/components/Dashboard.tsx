@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Crosshair, Rocket, ShieldCheck, Activity, Gauge, Target, ArrowRight,
+  Crosshair, Rocket, ShieldCheck, Activity, Gauge, Target,
 } from 'lucide-react';
 import Sidebar from './Sidebar';
 import TopNav from './TopNav';
@@ -12,36 +12,23 @@ import ExecutiveReport from './ExecutiveReport';
 import LiveConsole from './LiveConsole';
 import BrandLogo from './BrandLogo';
 import {
-  DISCOVERY_TASKS, ASSESSMENT_CHECKS, FINDINGS_POOL, DISCOVERY_RESULT,
+  DISCOVERY_TASKS, ASSESSMENT_CHECKS,
   type ConsoleLog, type Finding, type Severity, type DiscoveryResult,
 } from '../data';
 import type { LucideIcon } from 'lucide-react';
 
 type Phase = 'idle' | 'discovery' | 'assessment' | 'complete';
 
+const API_BASE_URL = 'http://localhost:8000';
 
 const emptyCounts = (): Record<Severity, number> => ({ critical: 0, high: 0, medium: 0, low: 0, info: 0 });
 
-const DISCOVERY_LOG_TEMPLATES: Record<string, string[]> = {
-  dns: ['Resolving A records for target...', 'Querying NS records...', 'DNS resolution complete: 2 A records found'],
-  ssl: ['Fetching TLS certificate chain...', 'Validating certificate issuer: DigiCert', 'TLS 1.3 detected, certificate valid'],
-  ports: ['Initializing TCP SYN scan on 65,535 ports...', 'Port 80/tcp open — http', 'Port 443/tcp open — https', 'Port 22/tcp open — ssh', 'Port 8080/tcp open — http-proxy', 'Port scan complete: 4 open, 2 filtered'],
-  tech: ['Fingerprinting HTTP response headers...', 'Detected: Nginx 1.24.0', 'Detected: React 18.2.0', 'Detected: Node.js 20.10', 'Detected: PostgreSQL 15.3', 'Technology fingerprinting complete'],
-  services: ['Enumerating services on open ports...', 'Service on :443 → nginx 1.24.0', 'Service on :8080 → node 20.10', 'Service enumeration complete'],
-  api: ['Discovering API endpoints...', 'Found: /api/v1/users', 'Found: /api/v1/auth', 'Found: /api/v1/orders', 'Found: /graphql', 'API discovery complete: 5 endpoints'],
-  endpoints: ['Crawling web endpoints...', 'Found: /login', 'Found: /dashboard', 'Found: /admin', 'Found: /.env (exposed!)', 'Endpoint enumeration complete: 8 paths'],
-};
-
-const ASSESSMENT_LOG_TEMPLATES: Record<string, string[]> = {
-  owasp: ['Running OWASP Top 10 checks...', 'A01: Broken Access Control — testing...', 'A03: Injection — testing...', 'A07: Identification & Auth failures — testing...', 'OWASP checks complete'],
-  headers: ['Analyzing HTTP security headers...', 'Missing: Strict-Transport-Security', 'Missing: Content-Security-Policy', 'Missing: X-Frame-Options', 'Header analysis complete'],
-  tls: ['Reviewing TLS configuration...', 'Warning: TLS 1.0 supported', 'Warning: TLS 1.1 supported', 'TLS review complete'],
-  auth: ['Testing authentication mechanisms...', 'Weak password policy detected', 'No rate limiting on login', 'Authentication review complete'],
-  misconfig: ['Scanning for misconfigurations...', 'Verbose error messages enabled', 'Server header exposes version', 'Misconfiguration analysis complete'],
-  deps: ['Scanning third-party dependencies...', 'Nginx 1.24.0 — CVE-2024-7347 matched', 'Dependency scan complete'],
-  secrets: ['Searching for leaked secrets...', 'CRITICAL: .env file publicly accessible', 'Secret detection complete'],
-  cve: ['Correlating findings with CVE database...', 'CVE-2024-7347 (CVSS 7.8) confirmed', 'CVE correlation complete'],
-};
+interface ScanApiResponse {
+  status: string;
+  target: string;
+  discoveryResult: DiscoveryResult;
+  findings: Finding[];
+}
 
 export default function Dashboard(){
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -66,7 +53,6 @@ export default function Dashboard(){
   // Findings
   const [findings, setFindings] = useState<Finding[]>([]);
   const [severityCounts, setSeverityCounts] = useState<Record<Severity, number>>(emptyCounts());
-  const [findingsRevealIndex, setFindingsRevealIndex] = useState(0);
 
   // Console
   const [logs, setLogs] = useState<ConsoleLog[]>([]);
@@ -75,142 +61,82 @@ export default function Dashboard(){
   const [generating, setGenerating] = useState(false);
   const [reportReady, setReportReady] = useState(false);
 
-  const timersRef = useRef<ReturnType<typeof setInterval>[]>([]);
-  const findingsPoolRef = useRef<Finding[]>([]);
-  const phaseRef = useRef<Phase>('idle');
-  phaseRef.current = phase;
-
   const addLog = useCallback((level: ConsoleLog['level'], message: string) => {
     setLogs((prev) => [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, timestamp: Date.now(), level, message }]);
   }, []);
 
-  const clearTimers = () => {
-    timersRef.current.forEach(clearInterval);
-    timersRef.current = [];
-  };
-
-  const startAssessment = useCallback(() => {
-    setPhase('assessment');
-    setAssessmentExpanded(true);
-    setActiveCheckIndex(0);
-    setCheckProgress(0);
-    addLog('info', 'Vulnerability Assessment initiated — 8 security checks queued');
-    addLog('scan', 'Loading vulnerability signatures and CVE database...');
-
-    let checkIdx = 0;
-    const runCheck = () => {
-      if (checkIdx >= ASSESSMENT_CHECKS.length) {
-        setAssessmentComplete(true);
-        addLog('success', 'Vulnerability Assessment complete — all checks finished');
-        setPhase('complete');
-        return;
-      }
-      setActiveCheckIndex(checkIdx);
-      const check = ASSESSMENT_CHECKS[checkIdx];
-      addLog('scan', `Executing: ${check.label}`);
-
-      const templates = ASSESSMENT_LOG_TEMPLATES[check.id] || [];
-      let logIdx = 0;
-      let progress = 0;
-      const progressTimer = setInterval(() => {
-        progress += 4 + Math.random() * 6;
-        if (progress >= 100) progress = 100;
-        setCheckProgress(progress);
-        if (logIdx < templates.length && progress > (logIdx + 1) * (100 / templates.length)) {
-          const lvl = templates[logIdx].includes('CRITICAL') ? 'error' : templates[logIdx].includes('Warning') || templates[logIdx].includes('Missing') ? 'warning' : 'scan';
-          addLog(lvl, templates[logIdx]);
-          logIdx++;
-        }
-      }, 120);
-      timersRef.current.push(progressTimer);
-
-      setTimeout(() => {
-        clearInterval(progressTimer);
-        setCheckProgress(100);
-        setCompletedChecks((prev) => [...prev, checkIdx]);
-        addLog('success', `${check.label} — complete`);
-        checkIdx++;
-        setTimeout(runCheck, 400);
-      }, 2200);
-    };
-    runCheck();
-  }, [addLog]);
-
-  const startDiscovery = useCallback(() => {
+  const runScan = useCallback(async (targetValue: string) => {
     setPhase('discovery');
     setActiveTaskIndex(0);
     setTaskProgress(0);
-    addLog('info', `Discovery Engine started against ${target}`);
-    addLog('scan', 'Initializing reconnaissance modules...');
+    addLog('info', `Vulnerability assessment initiated against ${targetValue}`);
 
-    let taskIdx = 0;
-    const runTask = () => {
-      if (taskIdx >= DISCOVERY_TASKS.length) {
-        setDiscoveryComplete(true);
-        setDiscoveryResult(DISCOVERY_RESULT);
-        setDiscoveryCollapsed(true);
-        addLog('success', 'Discovery Engine complete — infrastructure fully mapped');
-        addLog('info', 'Transitioning to Vulnerability Assessment...');
-        setTimeout(startAssessment, 1200);
-        return;
-      }
-      setActiveTaskIndex(taskIdx);
-      const task = DISCOVERY_TASKS[taskIdx];
-      addLog('scan', `Starting: ${task.label}`);
+    try {
+      addLog('scan', `Sending scan request to ${API_BASE_URL}/api/run-simulation ...`);
 
-      const templates = DISCOVERY_LOG_TEMPLATES[task.id] || [];
-      let logIdx = 0;
-      let progress = 0;
-      const progressTimer = setInterval(() => {
-        progress += 3 + Math.random() * 7;
-        if (progress >= 100) progress = 100;
-        setTaskProgress(progress);
-        if (logIdx < templates.length && progress > (logIdx + 1) * (100 / templates.length)) {
-          const lvl = templates[logIdx].includes('exposed') || templates[logIdx].includes('CRITICAL') ? 'error' : templates[logIdx].includes('complete') ? 'success' : 'scan';
-          addLog(lvl, templates[logIdx]);
-          logIdx++;
+      const response = await fetch(`${API_BASE_URL}/api/run-simulation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: targetValue }),
+      });
+
+      if (!response.ok) {
+        let detail = `HTTP ${response.status}`;
+        try {
+          const errBody = await response.json();
+          if (errBody?.detail) detail = errBody.detail;
+        } catch {
+          // response body wasn't JSON; fall back to status text
         }
-      }, 130);
-      timersRef.current.push(progressTimer);
+        throw new Error(detail);
+      }
 
-      setTimeout(() => {
-        clearInterval(progressTimer);
-        setTaskProgress(100);
-        setCompletedTasks((prev) => [...prev, taskIdx]);
-        addLog('success', `${task.label} — complete`);
-        taskIdx++;
-        setTimeout(runTask, 350);
-      }, 2100);
-    };
-    runTask();
-  }, [addLog, target, startAssessment]);
+      const data: ScanApiResponse = await response.json();
 
-  // Reveal findings gradually during assessment
-  useEffect(() => {
-    if (phase !== 'assessment' && phase !== 'complete') return;
-    if (findingsRevealIndex >= FINDINGS_POOL.length) return;
-    const delay = phase === 'complete' ? 200 : 900;
-    const t = setTimeout(() => {
-      const pool = FINDINGS_POOL[findingsRevealIndex];
-      const finding: Finding = { ...pool, discoveredAt: Date.now() };
-      setFindings((prev) => [...prev, finding]);
-      setSeverityCounts((prev) => ({ ...prev, [finding.severity]: prev[finding.severity] + 1 }));
-      addLog(finding.severity === 'critical' ? 'error' : finding.severity === 'high' ? 'warning' : 'info',
-        `Finding: [${finding.severity.toUpperCase()}] ${finding.vulnerability} (CVSS ${finding.cvss})`);
-      setFindingsRevealIndex((i) => i + 1);
-    }, delay);
-    return () => clearTimeout(t);
-  }, [findingsRevealIndex, phase, addLog]);
+      // Mark discovery as fully complete
+      setDiscoveryResult(data.discoveryResult);
+      setCompletedTasks(DISCOVERY_TASKS.map((_, idx) => idx));
+      setActiveTaskIndex(DISCOVERY_TASKS.length);
+      setTaskProgress(100);
+      setDiscoveryComplete(true);
+      setDiscoveryCollapsed(true);
+      addLog('success', 'Discovery Engine complete — infrastructure fully mapped');
 
-  // Auto-start discovery when phase becomes discovery
-  useEffect(() => {
-    if (phase === 'discovery') startDiscovery();
-  }, [phase, startDiscovery]);
+      // Mark assessment as fully complete
+      setPhase('assessment');
+      setAssessmentExpanded(true);
+      setCompletedChecks(ASSESSMENT_CHECKS.map((_, idx) => idx));
+      setActiveCheckIndex(ASSESSMENT_CHECKS.length);
+      setCheckProgress(100);
+      setAssessmentComplete(true);
 
-  useEffect(() => () => clearTimers(), []);
+      // Populate findings + severity counts from live response
+      const liveFindings = data.findings || [];
+      setFindings(liveFindings);
+      const counts = emptyCounts();
+      liveFindings.forEach((f) => {
+        if (f.severity in counts) counts[f.severity] += 1;
+      });
+      setSeverityCounts(counts);
+
+      liveFindings.forEach((f) => {
+        addLog(f.severity === 'critical' ? 'error' : f.severity === 'high' ? 'warning' : 'info',
+          `Finding: [${f.severity.toUpperCase()}] ${f.vulnerability} (CVSS ${f.cvss})`);
+      });
+
+      addLog('success', `Scan complete — ${liveFindings.length} findings identified`);
+      setPhase('complete');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error contacting scan backend';
+      addLog('error', `Scan failed: ${message}`);
+      setPhase('idle');
+      setActiveTaskIndex(-1);
+      setDiscoveryComplete(false);
+    }
+  }, [addLog]);
 
   const handleStart = () => {
-    setPhase('discovery');
+    runScan(target);
   };
 
   const handleGenerate = () => {
