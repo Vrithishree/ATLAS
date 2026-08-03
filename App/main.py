@@ -6,8 +6,9 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
 
-# Import backend orchestration module
+# Import backend orchestration module & ZAP scanner
 from App.tools.orchestrator import run_pipeline_orchestration
+from App.tools.owasp import run_owasp_zap_scan
 
 app = FastAPI(title="ATLAS Security Core API")
 
@@ -75,20 +76,20 @@ def _format_discovery_results(target: str, pipeline_data: dict) -> dict:
             "ips": [target],
             "nameservers": [f"ns1.{target}"]
         },
-        "ssl": {
+        "ssl": pipeline_data.get("ssl", {
             "issuer": "DigiCert TLS RSA SHA-256",
             "validFrom": "2025-01-01",
             "validTo": "2026-01-01",
             "protocol": "TLS 1.3"
-        },
+        }),
         "ports": formatted_ports if formatted_ports else [
             {"port": 80, "service": "http", "state": "open"},
             {"port": 443, "service": "https", "state": "open"}
         ],
-        "technologies": ["Nginx", "React", "Python/FastAPI"],
+        "technologies": pipeline_data.get("technologies", ["Nginx", "React", "Python/FastAPI"]),
         "services": services if services else [{"name": "http", "version": "latest"}],
-        "apis": ["/api/v1/auth", "/api/v1/data"],
-        "endpoints": ["/", "/login", "/dashboard"]
+        "apis": pipeline_data.get("apis", ["/api/v1/auth", "/api/v1/data"]),
+        "endpoints": pipeline_data.get("endpoints", ["/", "/login", "/dashboard"])
     }
 
 
@@ -96,7 +97,7 @@ def _format_findings(target: str, pipeline_data: dict) -> list:
     """Normalizes vulnerability outputs into frontend Finding interfaces."""
     findings = []
     
-    # Process Web App / ZAP Findings
+    # 1. Process Pipeline Web App / ZAP Findings (if returned as dicts)
     zap_findings = pipeline_data.get("web_application_vulnerabilities", [])
     if isinstance(zap_findings, list):
         for idx, item in enumerate(zap_findings):
@@ -114,7 +115,7 @@ def _format_findings(target: str, pipeline_data: dict) -> list:
                 "evidence": item.get("solution", "Review security headers and application configuration.")
             })
 
-    # Process Network Findings
+    # 2. Process Network Findings
     network_findings = pipeline_data.get("network_vulnerabilities", [])
     if isinstance(network_findings, list):
         for idx, item in enumerate(network_findings):
@@ -132,6 +133,24 @@ def _format_findings(target: str, pipeline_data: dict) -> list:
                 "evidence": item.get("insight", "Apply vendor patch.")
             })
 
+    # 3. Process Live OWASP ZAP Script Output
+    live_zap_results = run_owasp_zap_scan(target)
+    if isinstance(live_zap_results, list):
+        findings.extend(live_zap_results)
+    elif isinstance(live_zap_results, str) and "Clean" not in live_zap_results:
+        # Fallback string parser in case owasp.py returns a string
+        findings.append({
+            "id": "f-zap-live-1",
+            "severity": "medium",
+            "vulnerability": "OWASP ZAP Discovery",
+            "affectedAsset": target,
+            "cvss": 5.0,
+            "status": "Confirmed",
+            "discoveredAt": int(time.time() * 1000),
+            "description": live_zap_results,
+            "evidence": "Generated directly from ZAP Proxy API."
+        })
+
     return findings
 
 
@@ -140,8 +159,9 @@ def health_check():
     return {"status": "ATLAS Core Online"}
 
 
+# Converted to def (sync) so FastAPI automatically runs it in a background threadpool
 @app.post("/api/run-simulation")
-async def execute_va_simulation(request: ScanRequest):
+def execute_va_simulation(request: ScanRequest):
     target = request.target.strip()
     if not target:
         raise HTTPException(status_code=400, detail="Target cannot be empty.")
@@ -181,4 +201,4 @@ if __name__ == "__main__":
         print("💾 Output saved to scan_results.json")
     else:
         print("⚡ Starting ATLAS FastAPI server on http://localhost:8000")
-        uvicorn.run("App.main:app", host="0.0.0.0", port=8000, reload=True)
+        uvicorn.run(app, host="0.0.0.0", port=8000)

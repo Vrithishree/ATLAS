@@ -1,5 +1,5 @@
 import socket
-import ssl
+from urllib.parse import urlparse
 
 # Standard vulnerability mappings based on discovered port/service banners
 KNOWN_SERVICE_RISKS = {
@@ -25,13 +25,20 @@ KNOWN_SERVICE_RISKS = {
     }
 }
 
-def run_openvas_scan(target: str) -> dict | str:
+def _clean_target_host(target: str) -> str:
+    """Strips scheme and paths from target to ensure raw hostname/IP for socket connections."""
+    if "://" in target:
+        return urlparse(target).hostname or target
+    return target.split("/")[0].split(":")[0]
+
+def run_openvas_scan(target: str) -> dict:
     """
     Pure-Python Network Vulnerability Inspector.
     Replaces OpenVAS daemon dependency with native socket banner analysis.
     """
+    clean_host = _clean_target_host(target)
     vulnerabilities = []
-    raw_lines = [f"ATLAS Native CVE Engine - Target: {target}"]
+    raw_lines = [f"ATLAS Native CVE Engine - Target: {clean_host}"]
 
     # Standard high-risk network ports to audit
     target_ports = [21, 22, 23, 80, 135, 443, 445, 3306, 3389]
@@ -40,7 +47,7 @@ def run_openvas_scan(target: str) -> dict | str:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(0.8)
-            result = sock.connect_ex((target, port))
+            result = sock.connect_ex((clean_host, port))
 
             if result == 0:
                 # Port is open; evaluate against known vulnerabilities
@@ -52,9 +59,11 @@ def run_openvas_scan(target: str) -> dict | str:
 
                 vuln_entry = {
                     "port": port,
+                    "name": f"{risk_data['cve']}: Port {port} Exposure",
                     "cve_id": risk_data["cve"],
-                    "severity": risk_data["severity"],
-                    "summary": risk_data["description"]
+                    "severity": risk_data["severity"].lower(),
+                    "summary": risk_data["description"],
+                    "insight": "Filter access using firewall rules or restrict port binding to local interface."
                 }
                 vulnerabilities.append(vuln_entry)
                 raw_lines.append(f"  - [Port {port}] [{risk_data['severity']}] {risk_data['cve']}: {risk_data['description']}")
@@ -63,9 +72,8 @@ def run_openvas_scan(target: str) -> dict | str:
         except Exception:
             continue
 
-    if not vulnerabilities:
-        raw_output = f"Native Vulnerability Scan Complete: No high-risk open ports/CVEs flagged on {target}."
-    else:
-        raw_output = "\n".join(raw_lines)
-
-    return raw_output
+    return {
+        "success": True,
+        "raw_output": "\n".join(raw_lines) if vulnerabilities else f"Native Scan Complete: No high-risk open ports/CVEs flagged on {clean_host}.",
+        "network_vulnerabilities": vulnerabilities
+    }
