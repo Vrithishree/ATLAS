@@ -1,0 +1,76 @@
+{
+  "status": "Success",
+  "target": "127.0.0.1",
+  "discoveryResult": {
+    "dns": {
+      "hostname": "127.0.0.1",
+      "ips": [
+        "127.0.0.1"
+      ],
+      "nameservers": [
+        "ns1.127.0.0.1"
+      ]
+    },
+    "ssl": {
+      "issuer": "DigiCert TLS RSA SHA-256",
+      "validFrom": "2025-01-01",
+      "validTo": "2026-01-01",
+      "protocol": "TLS 1.3"
+    },
+    "ports": [
+      {
+        "port": 80,
+        "service": "http",
+        "state": "open"
+      },
+      {
+        "port": 135,
+        "service": "msrpc",
+        "state": "open"
+      },
+      {
+        "port": 443,
+        "service": "https",
+        "state": "open"
+      },
+      {
+        "port": 445,
+        "service": "microsoft-ds",
+        "state": "open"
+      }
+    ],
+    "technologies": [
+      "Nginx",
+      "React",
+      "Python/FastAPI"
+    ],
+    "services": [
+      {
+        "name": "http",
+        "version": ""
+      },
+      {
+        "name": "msrpc",
+        "version": ""
+      },
+      {
+        "name": "https",
+        "version": ""
+      },
+      {
+        "name": "microsoft-ds",
+        "version": ""
+      }
+    ],
+    "apis": [
+      "/api/v1/auth",
+      "/api/v1/data"
+    ],
+    "endpoints": [
+      "/",
+      "/login",
+      "/dashboard"
+    ]
+  },
+  "findings": []
+}

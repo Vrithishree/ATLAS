@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 logs
 *.log
 npm-debug.log*
@@ -21,3 +22,21 @@ dist-ssr
 *.sln
 *.sw?
 .env
+=======
+# Dependencies
+node_modules/
+
+# Python Virtual Environment & Cache
+venv/
+__pycache__/
+*.pyc
+
+# Logs & Build Output
+*.log
+dist/
+build/
+
+# Environment variables
+.env
+.env.local
+>>>>>>> b989c41d62dc5b23c341aeef5e25021a653d32b2
